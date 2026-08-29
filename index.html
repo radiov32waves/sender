@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Discord Announcement Sender</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #1e1f22;
+    color: #dbdee1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  .card {
+    background: #2b2d31;
+    border-radius: 12px;
+    padding: 28px;
+    width: 100%;
+    max-width: 520px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  h1 {
+    font-size: 18px;
+    margin: 0 0 4px;
+    color: #f2f3f5;
+  }
+  p.sub {
+    margin: 0 0 20px;
+    font-size: 13px;
+    color: #949ba4;
+  }
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #b5bac1;
+    margin-bottom: 6px;
+    margin-top: 16px;
+  }
+  input[type="text"], input[type="url"] {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid #1e1f22;
+    background: #1e1f22;
+    color: #dbdee1;
+    font-size: 14px;
+  }
+  textarea {
+    width: 100%;
+    min-height: 220px;
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid #1e1f22;
+    background: #1e1f22;
+    color: #dbdee1;
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    line-height: 1.5;
+  }
+  input:focus, textarea:focus {
+    outline: none;
+    border-color: #5865f2;
+  }
+  button {
+    width: 100%;
+    margin-top: 20px;
+    padding: 12px;
+    background: #5865f2;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { background: #4752c4; }
+  button:disabled { background: #3a3c42; cursor: not-allowed; }
+  .status {
+    margin-top: 14px;
+    font-size: 13px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    display: none;
+  }
+  .status.success { display: block; background: #23a55a22; color: #23a55a; border: 1px solid #23a55a55; }
+  .status.error { display: block; background: #f2384322; color: #f23843; border: 1px solid #f2384355; }
+  .hint {
+    font-size: 11px;
+    color: #6d7079;
+    margin-top: 6px;
+  }
+  .row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-top: 16px;
+  }
+  .row input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+  }
+  .row label {
+    margin: 0;
+    text-transform: none;
+    font-weight: 400;
+    font-size: 13px;
+    color: #dbdee1;
+  }
+</style>
+</head>
+<body>
+
+<div class="card" id="lockCard">
+  <h1>🔒 Locked</h1>
+  <p class="sub">Enter the password to access the announcement sender.</p>
+  <label for="pw">Password</label>
+  <input type="text" id="pw" placeholder="Password" onkeydown="if(event.key==='Enter')checkPassword()">
+  <button onclick="checkPassword()">Unlock</button>
+  <div id="pwStatus" class="status"></div>
+</div>
+
+<div class="card" id="mainCard" style="display:none;">
+  <h1>📣 Discord Announcement Sender</h1>
+  <p class="sub">Paste your webhook URL and message, then send. Nothing is saved.</p>
+
+  <label for="webhook">Webhook URL</label>
+  <input type="url" id="webhook" placeholder="https://discord.com/api/webhooks/...">
+  <div class="hint">Server Settings → Integrations → Webhooks → Copy URL</div>
+
+  <label for="message">Announcement Text</label>
+  <textarea id="message" placeholder="📣 MaxTrade Update&#10;&#10;A brand new update just dropped..."></textarea>
+
+  <div class="row">
+    <input type="checkbox" id="everyone">
+    <label for="everyone">Append @everyone at the end</label>
+  </div>
+
+  <button id="sendBtn" onclick="sendAnnouncement()">Send Announcement</button>
+
+  <div id="status" class="status"></div>
+</div>
+
+<script>
+const SITE_PASSWORD = "maxtrade2026";
+
+function checkPassword() {
+  const entered = document.getElementById('pw').value;
+  const pwStatus = document.getElementById('pwStatus');
+  if (entered === SITE_PASSWORD) {
+    document.getElementById('lockCard').style.display = 'none';
+    document.getElementById('mainCard').style.display = 'block';
+  } else {
+    pwStatus.className = 'status error';
+    pwStatus.textContent = 'Incorrect password.';
+  }
+}
+
+async function sendAnnouncement() {
+  const webhookUrl = document.getElementById('webhook').value.trim();
+  const messageBox = document.getElementById('message');
+  let message = messageBox.value.trim();
+  const appendEveryone = document.getElementById('everyone').checked;
+  const statusEl = document.getElementById('status');
+  const btn = document.getElementById('sendBtn');
+
+  statusEl.className = 'status';
+  statusEl.textContent = '';
+
+  if (!webhookUrl || !webhookUrl.startsWith('https://discord.com/api/webhooks/')) {
+    statusEl.className = 'status error';
+    statusEl.textContent = 'Please enter a valid Discord webhook URL.';
+    return;
+  }
+  if (!message) {
+    statusEl.className = 'status error';
+    statusEl.textContent = 'Message cannot be empty.';
+    return;
+  }
+  if (appendEveryone && !message.includes('@everyone')) {
+    message = message + '\n\n@everyone';
+  }
+  if (message.length > 2000) {
+    statusEl.className = 'status error';
+    statusEl.textContent = `Message is ${message.length} characters — Discord's limit is 2000.`;
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  try {
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: message,
+        allowed_mentions: { parse: ['everyone'] }
+      })
+    });
+
+    if (res.ok || res.status === 204) {
+      statusEl.className = 'status success';
+      statusEl.textContent = 'Announcement sent successfully.';
+      messageBox.value = '';
+    } else {
+      const text = await res.text();
+      statusEl.className = 'status error';
+      statusEl.textContent = `Discord returned an error (${res.status}): ${text.slice(0, 200)}`;
+    }
+  } catch (err) {
+    statusEl.className = 'status error';
+    statusEl.textContent = 'Request failed: ' + err.message + ' (this often happens if opened as a local file — try a simple local server, or check your network connection).';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Send Announcement';
+  }
+}
+</script>
+
+</body>
+</html>
